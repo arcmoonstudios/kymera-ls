@@ -1,0 +1,82 @@
+[package]
+name = "kymera-ls"
+version = "0.1.0"
+edition = "2021"
+authors = ["Lord Xyn <LordXyn@proton.me>"]
+description = "Language Server for the Kymera Programming Language"
+license = "MIT"
+build = "build.rs"
+
+[workspace]
+members = [
+    "crates/kymera-analysis",
+    "crates/kymera-core",
+    "crates/kymera-cortex",
+    "crates/kymera-reactor",
+    "crates/kymera-parser",
+]
+
+[dependencies]
+# Error Handling
+thiserror = "2.0.7"
+anyhow = "1.0.94"
+miette = "7.4.0"
+miette-derive = "7.4.0"
+
+# Async Runtime
+tokio = { version = "1.35.1", features = ["full"] }
+futures = "0.3"
+async-trait = "0.1"
+
+# LSP & Analysis
+tower-lsp = "0.20.0"
+ropey = "1.6.1"  # Efficient text handling
+dashmap = "5.5.3"  # Thread-safe HashMap
+
+# Serialization & Data Handling
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+protobuf = { version = "3.3.0", features = ["bytes"] }
+
+# Logging & Telemetry
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+metrics = "0.17"
+tracing-futures = "0.2"
+
+# Workspace Dependencies
+kymera-core = { path = "crates/kymera-core" }
+kymera-reactor = { path = "crates/kymera-reactor" }
+kymera-parser = { path = "crates/kymera-parser" }
+kymera-analysis = { path = "crates/kymera-analysis" }
+
+[build-dependencies]
+protobuf-codegen = "3.3.0"
+protobuf-parse = "3.3.0"
+
+[dev-dependencies]
+# Testing
+mockall = "0.12"
+proptest = "1.0"
+tokio-test = "0.4"
+criterion = "0.5"
+
+[[bench]]
+name = "performance"
+harness = false
+
+[features]
+default = ["telemetry", "ai_assist"]
+telemetry = []
+ai_assist = []
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true

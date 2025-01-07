@@ -1,0 +1,31 @@
+[package]
+name = "kymera-reactor"
+version = "0.1.0"
+edition = "2021"
+authors = ["Lord Xyn <LordXyn@proton.me>"]
+description = "Reactive compiler for the Kymera Programming Language"
+license = "MIT"
+
+[dependencies]
+# Error Handling
+thiserror = "2.0.7"
+anyhow = "1.0.94"
+
+# Async Runtime
+tokio = { version = "1.35.1", features = ["full"] }
+async-trait = "0.1"
+
+# Utilities
+derivative = "2.2"
+parking_lot = "0.12"
+
+# Logging & Telemetry
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+metrics = "0.17"
+tracing-futures = "0.2"
+
+# ML & GPU Acceleration
+tch = "0.18"  # PyTorch bindings
+ort = "2.0.0-rc.9"   # ONNX Runtime
+wgpu = "0.19" # GPU Compute 

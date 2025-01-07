@@ -1,0 +1,53 @@
+[package]
+name = "kymera-cortex"
+version = "0.1.0"
+edition = "2021"
+authors = ["Lord Xyn <LordXyn@proton.me>"]
+description = "Neural-symbolic AI core for the Kymera programming language"
+license = "MIT"
+
+[dependencies]
+# Error Handling
+thiserror = "2.0.7"
+anyhow = "1.0.94"
+
+# Async Runtime
+tokio = { version = "1.36", features = ["full"] }
+futures = "0.3"
+async-trait = "0.1"
+rayon = "1.8"
+proptest = "1.0"
+
+# Numerics & Linear Algebra
+ndarray = { version = "0.15", features = ["serde", "blas"] }
+ndarray-linalg = { version = "0.16", features = ["openblas-system"] }
+num-complex = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+rand_distr = "0.4"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Utilities
+derivative = "2.2"
+parking_lot = "0.12"
+dashmap = "5.5.3"
+uuid = { version = "1.7", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Logging & Telemetry
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+criterion = "0.5"
+proptest = "1.0"
+test-case = "3.3"
+approx = "0.5"
+mockall = "0.12"
+tokio-test = "0.4"
+
+[features]
+default = ["telemetry"]
+telemetry = []

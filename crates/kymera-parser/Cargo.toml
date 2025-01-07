@@ -1,0 +1,22 @@
+[package]
+name = "kymera-parser"
+version = "0.1.0"
+edition = "2021"
+authors = ["Lord Xyn <LordXyn@proton.me>"]
+description = "Parser implementation for the Kymera programming language"
+license = "MIT"
+
+[dependencies]
+# Core dependencies
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0.7"
+anyhow = "1.0.94"
+logos = "0.13"  # For lexing
+chumsky = "0.9"  # For parsing
+
+# Logging & Telemetry
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Workspace dependencies
+kymera-core = { path = "../kymera-core" } 

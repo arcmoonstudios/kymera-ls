@@ -1,0 +1,18 @@
+[package]
+name = "kymera-analysis"
+version = "0.1.0"
+edition = "2021"
+authors = ["Lord Xyn <LordXyn@proton.me>"]
+description = "Semantic analysis for the Kymera programming language"
+license = "MIT"
+
+[dependencies]
+# Core dependencies
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0.7"
+anyhow = "1.0.94"
+salsa = "0.16"  # For incremental computation
+
+# Workspace dependencies
+kymera-core = { path = "../kymera-core" }
+kymera-parser = { path = "../kymera-parser" } 

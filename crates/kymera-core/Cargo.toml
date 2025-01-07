@@ -1,0 +1,34 @@
+[package]
+name = "kymera-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Lord Xyn <LordXyn@proton.me>"]
+description = "Core types and utilities for the Kymera programming language"
+license = "MIT"
+
+[dependencies]
+# Error Handling
+thiserror = "2.0.7"
+anyhow = "1.0.94"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async Runtime
+tokio = { version = "1.35.1", features = ["full"] }
+async-trait = "0.1"
+
+# Utilities
+derivative = "2.2"
+parking_lot = "0.12"
+dashmap = "5.5.3"
+
+# Logging & Telemetry
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+mockall = "0.12"
+proptest = "1.0"
+tokio-test = "0.4"
