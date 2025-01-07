@@ -9,77 +9,37 @@
 //! security, and performance.
 
 use std::{
-    collections::HashMap,
     fmt::Debug,
-    sync::Arc,
+    sync::{Arc, Weak},
     time::Duration,
 };
 
 use async_trait::async_trait;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use config::{Config, ConfigError, Environment, File};
+use futures::{Stream, StreamExt};
 use metrics::{counter, histogram};
-use parking_lot::RwLock;
 use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::sync::{Mutex, Semaphore};
+use tokio::{
+    runtime::Builder as TokioBuilder,
+    sync::{Mutex, Semaphore},
+    time::timeout,
+};
 use tracing::{error, info};
 use zeroize::Zeroize;
+use num_cpus;
 
-use types::*;
+use crate::types::{
+    NeuralAnalysis, CodeReasoning, OptimizedCode, Module, Structure,
+    Implementation, Method, Function, Type,
+};
+
+use crate::err::ReactorError;
 
 /// Result type for reactor operations.
 pub type ReactorResult<T> = Result<T, ReactorError>;
-
-/// Error type for reactor operations.
-#[derive(Error, Debug)]
-pub enum ReactorError {
-    /// Import error.
-    #[error("Import error: {0}")]
-    ImportError(String),
-    /// Scope resolution error.
-    #[error("Scope error: {0}")]
-    ScopeError(String),
-    /// Structure definition error.
-    #[error("Structure error: {0}")]
-    StructureError(String),
-    /// Implementation error.
-    #[error("Implementation error: {0}")]
-    ImplementationError(String),
-    /// Function definition error.
-    #[error("Function error: {0}")]
-    FunctionError(String),
-    /// Self reference error.
-    #[error("Self reference error: {0}")]
-    SelfError(String),
-    /// Type error.
-    #[error("Type error: {0}")]
-    TypeError(String),
-    /// Memory management error.
-    #[error("Memory error: {0}")]
-    MemoryError(String),
-    /// Configuration error.
-    #[error("Configuration error: {0}")]
-    ConfigurationError(String),
-    /// Metrics error.
-    #[error("Metrics error: {0}")]
-    MetricsError(String),
-    /// Verification error.
-    #[error("Verification error: {0}")]
-    VerificationError(String),
-    /// Module error.
-    #[error("Module error: {0}")]
-    ModuleError(#[from] ModuleError),
-    /// Engine error.
-    #[error("Engine error: {0}")]
-    EngineError(#[from] EngineError),
-}
-
-// Implement anyhow::Context for ReactorError
-anyhow::private::catch_all!(impl ReactorError);
-
-
 
 /// Reactor system configuration.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -201,23 +161,30 @@ pub enum ModuleError {
     /// Timeout error.
     #[error("Operation timed out after {duration:?}")]
     Timeout {
+        /// Duration after which the operation timed out
         duration: Duration,
+        /// Source of the error
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
     /// Validation error.
     #[error("Invalid input: {message}")]
     ValidationError {
+        /// Error message
         message: String,
+        /// Source of the error
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
     /// Operation error.
     #[error("Operation failed: {message}")]
     OperationError {
+        /// Error message
         message: String,
+        /// Source of the error
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        /// Number of retry attempts
         retry_count: u32,
     },
 }
@@ -226,14 +193,6 @@ impl ModuleError {
     /// Checks if the error is retryable.
     pub fn is_retryable(&self) -> bool {
         matches!(self, Self::Timeout { .. })
-    }
-
-    fn type_name(&self) -> &'static str {
-        match self {
-            Self::Timeout { .. } => "Timeout",
-            Self::ValidationError { .. } => "ValidationError",
-            Self::OperationError { .. } => "OperationError",
-        }
     }
 }
 
@@ -342,50 +301,30 @@ where
     Fut: std::future::Future<Output = ModuleResult<T>> + Send,
     T: Send + 'static,
 {
+    let results = Vec::new();
     let semaphore = Arc::new(Semaphore::new(max_concurrent));
-    let (tx, mut rx) = tokio::sync::mpsc::channel(max_concurrent);
     let mut stream = stream.fuse();
-    tokio::pin!(stream);
-    let mut results = Vec::new();
 
     loop {
         tokio::select! {
-            item = stream.next() => {
-                if let Some(item) = item {
-                    let permit = semaphore.acquire_owned().await.map_err(|_| ModuleError::OperationError {
-                        message: "Semaphore closed".into(),
-                        source: None,
-                        retry_count: 0,
-                    })?;
-                    let f = f.clone();
-                    let tx = tx.clone();
+            maybe_item = stream.next() => {
+                match maybe_item {
+                    Some(item) => {
+                        let f = f.clone();
+                        let permit = semaphore.clone().acquire_owned().await.map_err(|_| ModuleError::OperationError {
+                            message: "Failed to acquire semaphore".to_string(),
+                            source: None,
+                            retry_count: 0,
+                        })?;
 
-                    tokio::spawn(async move {
-                        let result = f(item).await;
-                        // Ignore send errors if receiver is closed to prevent task panics
-                        let _ = tx.send(result).await; 
-                        drop(permit);
-                    });
-                } else {
-                    break; // No more items
+                        tokio::spawn(async move {
+                            let _permit = permit;
+                            f(item).await
+                        });
+                    }
+                    None => break,
                 }
             }
-            result = rx.recv() => {
-                match result {
-                    Some(Ok(item)) => results.push(item),
-                    Some(Err(err)) => return Err(err), // Propagate module errors
-                    None => break, // All workers finished
-                }
-            }
-        }
-    }
-    drop(tx); // Close channel
-
-
-    while let Some(result) = rx.recv().await {
-        match result {
-            Ok(item) => results.push(item),
-            Err(err) => return Err(err),
         }
     }
 
@@ -411,16 +350,15 @@ pub fn configure_runtime() -> std::io::Result<tokio::runtime::Runtime> {
 }
 
 
-/// Secure credentials storage.
-#[derive(Debug, Zeroize)]
-#[zeroize(drop)]
+/// Credentials for authentication
+#[derive(Debug)]
 pub struct Credentials {
     username: String,
     password: Secret<String>,
 }
 
 impl Credentials {
-    /// Creates new credentials.
+    /// Creates new credentials
     pub fn new(username: String, password: String) -> Self {
         Self {
             username,
@@ -428,16 +366,19 @@ impl Credentials {
         }
     }
 
-    /// Verifies the password against a provided value.
+    /// Verifies credentials
     pub fn verify(&self, other: &str) -> bool {
-        constant_time_eq::constant_time_eq(
-            self.password.expose_secret().as_bytes(),
-            other.as_bytes(),
-        )
+        self.password.expose_secret() == other
     }
 }
 
-/// Core trait for neural network analysis.
+impl Drop for Credentials {
+    fn drop(&mut self) {
+        self.username.zeroize();
+    }
+}
+
+/// Trait for neural network analysis.
 #[async_trait]
 pub trait NeuralAnalyzer: Send + Sync + Debug {
     /// Prepares the neural network for analysis.
@@ -448,7 +389,7 @@ pub trait NeuralAnalyzer: Send + Sync + Debug {
     async fn monitor(&self, analysis: &NeuralAnalysis) -> ReactorResult<()>;
 }
 
-/// Core trait for ML-based code reasoning.
+/// Trait for code reasoning and optimization.
 #[async_trait]
 pub trait CodeReasoner: Send + Sync + Debug {
     /// Analyzes code using ML techniques.
@@ -459,7 +400,7 @@ pub trait CodeReasoner: Send + Sync + Debug {
     async fn optimize(&self, reasoning: &CodeReasoning) -> ReactorResult<OptimizedCode>;
 }
 
-/// Core trait for GPU acceleration.
+/// Trait for GPU acceleration.
 #[async_trait]
 pub trait GPUAccelerator: Send + Sync + Debug {
     /// Initializes GPU resources.
@@ -470,7 +411,7 @@ pub trait GPUAccelerator: Send + Sync + Debug {
     async fn cleanup(&self) -> ReactorResult<()>;
 }
 
-/// Core trait for VERX analysis.
+/// Trait for Verx analysis.
 #[async_trait]
 pub trait VerxAnalyzer: Send + Sync + Debug {
     /// Performs pre-analysis checks.
@@ -487,7 +428,7 @@ pub trait VerxAnalyzer: Send + Sync + Debug {
     async fn analyze_function(&self, function: &Function) -> ReactorResult<()>;
 }
 
-/// Core trait for memory management.
+/// Trait for memory management.
 #[async_trait]
 pub trait MemoryManager: Send + Sync + Debug {
     /// Allocates memory for a module.
@@ -500,7 +441,7 @@ pub trait MemoryManager: Send + Sync + Debug {
     async fn cleanup(&self) -> ReactorResult<()>;
 }
 
-/// Core trait for type system operations.
+/// Trait for type system operations.
 pub trait TypeSystem: Send + Sync + Debug {
     /// Registers a new type.
     fn register_type(&mut self, name: &str) -> ReactorResult<()>;
@@ -512,7 +453,7 @@ pub trait TypeSystem: Send + Sync + Debug {
     fn get_type(&self, type_name: &str) -> Option<Type>;
 }
 
-/// Core trait for module management.
+/// Trait for module management.
 #[async_trait]
 pub trait ModuleManager: Send + Sync + Debug {
     /// Imports a module.
@@ -528,7 +469,7 @@ pub trait ModuleManager: Send + Sync + Debug {
     async fn register_function(&mut self, function: Function) -> ReactorResult<Arc<Function>>;
 }
 
-/// Reactor lifecycle management trait.
+/// Trait for reactor lifecycle management.
 #[async_trait]
 pub trait ReactorLifecycle: Send + Sync + Debug {
     /// Initializes the reactor.
@@ -598,100 +539,28 @@ impl ReactorModule<Running> {
 
 //  Mock implementations for testing and demonstration.
 
-mock! {
-    pub NeuralNetwork {}
-    #[async_trait]
-    impl NeuralAnalyzer for NeuralNetwork {
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[automock]
+    pub trait TestNeuralAnalyzer: Send + Sync + Debug {
         async fn prepare(&self) -> ReactorResult<()>;
         async fn process(&self, code: &str) -> ReactorResult<NeuralAnalysis>;
         async fn monitor(&self, analysis: &NeuralAnalysis) -> ReactorResult<()>;
     }
-}
 
-mock! {
-    pub MLReasoner {}
-    #[async_trait]
-    impl CodeReasoner for MLReasoner {
+    #[automock]
+    pub trait TestCodeReasoner: Send + Sync + Debug {
         async fn analyze(&self, analysis: &NeuralAnalysis) -> ReactorResult<CodeReasoning>;
         async fn validate(&self, reasoning: &CodeReasoning) -> ReactorResult<()>;
         async fn optimize(&self, reasoning: &CodeReasoning) -> ReactorResult<OptimizedCode>;
     }
-}
 
-mock! {
-    pub GPU {}
-    #[async_trait]
-    impl GPUAccelerator for GPU {
+    #[automock]
+    pub trait TestGPUAccelerator: Send + Sync + Debug {
         async fn initialize(&self) -> ReactorResult<()>;
         async fn optimize(&self, reasoning: &CodeReasoning) -> ReactorResult<OptimizedCode>;
         async fn cleanup(&self) -> ReactorResult<()>;
     }
-}
-
-mock! {
-    pub Verifier {}
-    #[async_trait]
-    impl VerxAnalyzer for Verifier {
-        async fn pre_analyze(&self, code: &str) -> ModuleResult<()>;
-        async fn analyze_import(&self, path: &str) -> ReactorResult<()>;
-        async fn monitor_neural(&self, analysis: &NeuralAnalysis) -> ReactorResult<()>;
-        async fn verify_compilation(&self, optimized: &OptimizedCode) -> ReactorResult<()>;
-        async fn analyze_method(&self, method: &Method) -> ReactorResult<()>;
-        async fn analyze_function(&self, function: &Function) -> ReactorResult<()>;
-    }
-}
-
-mock! {
-    pub Memory {}
-    #[async_trait]
-    impl MemoryManager for Memory {
-        async fn allocate_module(&self, module: &Module) -> ReactorResult<()>;
-        async fn track_structure(&self, structure: &Structure) -> ReactorResult<()>;
-        async fn monitor_implementation(&self, implementation: &Implementation) -> ReactorResult<()>;
-        async fn cleanup(&self) -> ReactorResult<()>;
-    }
-}
-
-
-mock! {
-    pub TypeSystemManager {}
-
-    impl TypeSystem for TypeSystemManager {
-        fn register_type(&mut self, name: &str) -> ReactorResult<()>;
-        fn validate_type(&self, ty: &Type) -> ReactorResult<()>;
-        fn register_structure(&mut self, structure: &Structure) -> ReactorResult<()>;
-        fn get_type(&self, type_name: &str) -> Option<Type>;
-    }
-}
-
-
-mock! {
-    pub Modules {}
-    #[async_trait]
-    impl ModuleManager for Modules {
-        async fn import_module(&mut self, path: &str) -> ReactorResult<Arc<Module>>;
-        async fn register_structure(&mut self, structure: Structure) -> ReactorResult<Arc<Structure>>;
-        async fn add_implementation(&mut self, implementation: Implementation) -> ReactorResult<Arc<Implementation>>;
-        async fn register_function(&mut self, function: &Function) -> ReactorResult<Arc<Function>>;
-    }
-}
-
-/// Example use
-#[tokio::main]
-pub async fn main() -> anyhow::Result<()> {
-
-    let config = ReactorConfig::load().context("Failed to load config")?;
-    let metrics = ReactorMetricsCollector::new("kymera");
-    metrics.initialize(&config);
-
-    let module = ReactorModule::new();
-    let module = module.initialize(config);
-    let module = module.start();
-
-    // Example usage of with_retry
-    let result = with_retry(|| async { Ok::<_, ModuleError>(1) }, 3, Duration::from_secs(1)).await;
-    println!("Result: {:?}", result);
-
-    let module = module.stop();
-    Ok(())
 }

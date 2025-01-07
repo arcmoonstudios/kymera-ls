@@ -4,11 +4,11 @@ use std::{
     time::{Duration, SystemTime},
     num::NonZeroUsize,
 };
-use crate::err::{Error, Result};
+use crate::err::{CortexError, TapeError, Result, Context};
 use num_complex::Complex64;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use tracing::{error, info, instrument, warn, debug};
+use tracing::{info, instrument, warn, debug};
 
 /// Strongly typed position for tape operations
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -38,33 +38,6 @@ impl SymbolValue {
     }
 }
 
-/// Tape-specific errors with custom Debug implementation
-#[derive(Error, PartialEq, Clone)]
-pub enum TapeError {
-    #[error("Invalid symbol: {0}")]
-    InvalidSymbol(String),
-
-    #[error("Out of bounds access: {0}")]
-    OutOfBounds(String),
-
-    #[error("Quantum state error: {0}")]
-    QuantumError(String),
-
-    #[error("Time error: {0}")]
-    TimeError(String),
-}
-
-impl std::fmt::Debug for TapeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidSymbol(msg) => write!(f, "InvalidSymbol({})", msg),
-            Self::OutOfBounds(msg) => write!(f, "OutOfBounds({})", msg),
-            Self::QuantumError(msg) => write!(f, "QuantumError({})", msg),
-            Self::TimeError(msg) => write!(f, "TimeError({})", msg),
-        }
-    }
-}
-
 /// Tape symbol with quantum properties
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TapeSymbol {
@@ -74,10 +47,10 @@ pub struct TapeSymbol {
 }
 
 impl TapeSymbol {
-    pub fn new(value: u64) -> Result<Self, TapeError> {
+    pub fn new(value: u64) -> Result<Self> {
         let creation_time = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|e| TapeError::TimeError(e.to_string()))?
+            .context("Failed to get system time")?
             .as_millis() as u64;
             
         Ok(Self {
@@ -87,14 +60,15 @@ impl TapeSymbol {
         })
     }
 
-    pub fn with_amplitude(value: u64, amplitude: Complex64) -> Result<Self, TapeError> {
+    pub fn with_amplitude(value: u64, amplitude: Complex64) -> Result<Self> {
         if (amplitude.norm_sqr() - 1.0).abs() > 1e-6 {
-            return Err(TapeError::QuantumError("Amplitude not normalized".into()));
+            return Err(CortexError::Tape(TapeError::QuantumError("Amplitude not normalized".into())))
+                .context("Invalid quantum amplitude");
         }
 
         let creation_time = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|e| TapeError::TimeError(e.to_string()))?
+            .context("Failed to get system time")?
             .as_millis() as u64;
 
         Ok(Self {
@@ -108,10 +82,10 @@ impl TapeSymbol {
         self.value.get() as usize
     }
 
-    pub fn age(&self) -> Result<Duration, TapeError> {
+    pub fn age(&self) -> Result<Duration> {
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|e| TapeError::TimeError(e.to_string()))?
+            .context("Failed to get system time")?
             .as_millis() as u64;
         Ok(Duration::from_millis(now - self.creation_time))
     }
@@ -149,7 +123,7 @@ impl TuringTapeBuilder {
         self
     }
 
-    pub fn build(self) -> Result<TuringTape, TapeError> {
+    pub fn build(self) -> Result<TuringTape> {
         let size = self.size.ok_or_else(|| 
             TapeError::InvalidSymbol("Size must be non-zero".into()))?;
 
@@ -187,7 +161,7 @@ impl TuringTape {
         &mut self,
         size: usize,
         symbol_set: Vec<TapeSymbol>,
-    ) -> Result<(), TapeError> {
+    ) -> Result<()> {
         info!("Initializing Turing tape with size {}", size);
 
         for _ in 0..size {
@@ -210,14 +184,15 @@ impl TuringTape {
     }
 
     /// Read symbol at current head position
-    pub fn read_symbol(&self) -> Result<TapeSymbol, TapeError> {
+    pub fn read_symbol(&self) -> Result<TapeSymbol> {
         self.read_symbol_at(self.head_position)
     }
 
     /// Read symbol at specific position
-    pub fn read_symbol_at(&self, position: usize) -> Result<TapeSymbol, TapeError> {
+    pub fn read_symbol_at(&self, position: usize) -> Result<TapeSymbol> {
         if position >= self.symbols.len() {
-            return Err(TapeError::OutOfBounds(format!("Position {} out of bounds", position)));
+            return Err(CortexError::Tape(TapeError::OutOfBounds(format!("Position {} out of bounds", position))))
+                .context("Failed to read symbol");
         }
 
         let symbol = self.symbols[position].clone();
@@ -226,7 +201,7 @@ impl TuringTape {
     }
 
     /// Write symbol at current head position
-    pub fn write_symbol(&mut self, symbol: TapeSymbol) -> Result<(), TapeError> {
+    pub fn write_symbol(&mut self, symbol: TapeSymbol) -> Result<()> {
         self.write_symbol_at(self.head_position, symbol)
     }
 
@@ -235,14 +210,16 @@ impl TuringTape {
         &mut self,
         position: usize,
         symbol: TapeSymbol,
-    ) -> Result<(), TapeError> {
+    ) -> Result<()> {
         if position >= self.symbols.len() {
-            return Err(TapeError::OutOfBounds(format!("Position {} out of bounds", position)));
+            return Err(CortexError::Tape(TapeError::OutOfBounds(format!("Position {} out of bounds", position))))
+                .context("Failed to write symbol");
         }
 
         let mut entanglement = self.entanglement_map.write();
         entanglement.update_symbol(position, &symbol)
-            .map_err(|e| TapeError::QuantumError(e.to_string()))?;
+            .map_err(CortexError::Tape)
+            .context("Failed to update entanglement")?;
 
         self.symbols[position] = symbol.clone();
         let _ = self.stats.record_write(&symbol);
@@ -254,17 +231,19 @@ impl TuringTape {
     }
 
     /// Move tape head
-    pub fn move_head(&mut self, direction: Direction) -> Result<(), TapeError> {
+    pub fn move_head(&mut self, direction: Direction) -> Result<()> {
         match direction {
             Direction::Left => {
                 if self.head_position == 0 {
-                    return Err(TapeError::OutOfBounds("Cannot move left from position 0".into()));
+                    return Err(CortexError::Tape(TapeError::OutOfBounds("Cannot move left from position 0".into())))
+                        .context("Failed to move head left");
                 }
                 self.head_position -= 1;
             }
             Direction::Right => {
                 if self.head_position >= self.symbols.len() - 1 {
-                    return Err(TapeError::OutOfBounds("Cannot move right from end of tape".into()));
+                    return Err(CortexError::Tape(TapeError::OutOfBounds("Cannot move right from end of tape".into())))
+                        .context("Failed to move head right");
                 }
                 self.head_position += 1;
             }
@@ -290,14 +269,16 @@ impl TuringTape {
     }
 
     /// Check quantum coherence of tape region
-    pub fn check_coherence(&self, start: usize, end: usize) -> Result<bool, TapeError> {
+    pub fn check_coherence(&self, start: usize, end: usize) -> Result<bool> {
         if start >= self.symbols.len() || end >= self.symbols.len() {
-            return Err(TapeError::OutOfBounds(format!("Range {}..{} out of bounds", start, end)));
+            return Err(CortexError::Tape(TapeError::OutOfBounds(format!("Range {}..{} out of bounds", start, end))))
+                .context("Failed to check coherence");
         }
 
         let entanglement = self.entanglement_map.read();
         entanglement.check_coherence(start..=end)
-            .map_err(|e| TapeError::QuantumError(e.to_string()))
+            .map_err(CortexError::Tape)
+            .context("Failed to check quantum coherence")
     }
 }
 
@@ -323,7 +304,7 @@ impl EntanglementMap {
         }
     }
 
-    pub fn initialize(&mut self, size: usize) -> Result<(), TapeError> {
+    pub fn initialize(&mut self, size: usize) -> std::result::Result<(), TapeError> {
         self.entanglements = vec![Vec::new(); size];
         self.coherence_times = vec![0; size];
         Ok(())
@@ -333,7 +314,7 @@ impl EntanglementMap {
         &mut self,
         position: usize,
         symbol: &TapeSymbol,
-    ) -> Result<(), TapeError> {
+    ) -> std::result::Result<(), TapeError> {
         if position >= self.coherence_times.len() {
             return Err(TapeError::OutOfBounds(format!("Position {} out of bounds", position)));
         }
@@ -361,7 +342,7 @@ impl EntanglementMap {
         Ok(())
     }
 
-    pub fn check_coherence(&self, range: std::ops::RangeInclusive<usize>) -> Result<bool, TapeError> {
+    pub fn check_coherence(&self, range: std::ops::RangeInclusive<usize>) -> std::result::Result<bool, TapeError> {
         for pos in range {
             if pos >= self.coherence_times.len() {
                 return Err(TapeError::OutOfBounds(format!("Position {} out of bounds", pos)));
@@ -435,7 +416,7 @@ impl TapeStatistics {
         *frequencies.entry(symbol.value.get()).or_insert(0) += 1;
     }
 
-    pub fn record_write(&self, symbol: &TapeSymbol) -> Result<(), TapeError> {
+    pub fn record_write(&self, symbol: &TapeSymbol) -> Result<()> {
         self.total_writes.fetch_add(1, Ordering::SeqCst);
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)

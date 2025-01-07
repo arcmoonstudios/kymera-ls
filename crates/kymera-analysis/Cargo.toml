@@ -12,7 +12,18 @@ serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0.7"
 anyhow = "1.0.94"
 salsa = "0.16"  # For incremental computation
+tch = "0.18"    # Rust bindings for libtorch
 
 # Workspace dependencies
-kymera-core = { path = "../kymera-core" }
-kymera-parser = { path = "../kymera-parser" } 
+kymera-core = { path = "../kymera-core", version = "0.1.0" }
+kymera-parser = { path = "../kymera-parser", version = "0.1.0" }
+
+[dev-dependencies]
+# Testing utilities
+criterion = "0.5"  # For benchmarking
+mockall = "0.12"   # For mocking
+proptest = "1.0"   # For property testing
+test-case = "3.3"  # For parameterized tests 
+
+[build-dependencies]
+cmake = "0.1" 

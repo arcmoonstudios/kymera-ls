@@ -4,4 +4,4 @@ pub mod err;
 pub mod server;
 
 pub use err::{Error, Result};
-pub use server::Server;
+pub use tower_lsp::Server;

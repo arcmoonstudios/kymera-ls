@@ -1,4 +1,4 @@
-use crate::err::{KymeraParserError, Result};
+use crate::err::{ParserError, Result};
 use crate::lexer::{Token, TokenType};
 use crate::position::{Position, Span};
 use crate::ast::{AstNode, BinaryOp, Declaration, Expression, Function, IfStatement, 
@@ -69,7 +69,7 @@ impl Parser {
                 path
             }
             _ => {
-                return Err(KymeraParserError::UnexpectedToken {
+                return Err(ParserError::UnexpectedToken {
                     expected: "identifier".to_string(),
                     found: self.current_token()?.lexeme.clone(),
                     span: self.current_token()?.span,
@@ -87,7 +87,7 @@ impl Parser {
                     Some(alias)
                 }
                 _ => {
-                    return Err(KymeraParserError::UnexpectedToken {
+                    return Err(ParserError::UnexpectedToken {
                         expected: "identifier".to_string(),
                         found: self.current_token()?.lexeme.clone(),
                         span: self.current_token()?.span,
@@ -100,7 +100,7 @@ impl Parser {
 
         // Expect semicolon
         if self.current_token()?.token_type != TokenType::Semicolon {
-            return Err(KymeraParserError::UnexpectedToken {
+            return Err(ParserError::UnexpectedToken {
                 expected: ";".to_string(),
                 found: self.current_token()?.lexeme.clone(),
                 span: self.current_token()?.span,
@@ -324,7 +324,7 @@ impl Parser {
                     span: Span::new(start_pos, end_pos),
                 })))
             } else {
-                Err(KymeraParserError::Parser {
+                Err(ParserError::Parser {
                     message: "Invalid assignment target".to_string(),
                     span: Span::new(start_pos, end_pos),
                 })
@@ -571,7 +571,7 @@ impl Parser {
                 self.advance();
                 Ok(Literal::Nil(token.span))
             }
-            _ => Err(KymeraParserError::UnexpectedToken {
+            _ => Err(ParserError::UnexpectedToken {
                 expected: "literal".to_string(),
                 found: token.lexeme.clone(),
                 span: token.span,
@@ -597,7 +597,7 @@ impl Parser {
             Ok(token)
         } else {
             let span = token.span;
-            Err(KymeraParserError::UnexpectedToken {
+            Err(ParserError::UnexpectedToken {
                 expected: format!("{:?}", expected_type),
                 found: token.lexeme.clone(),
                 span,
@@ -613,7 +613,7 @@ impl Parser {
     /// Returns the current token without consuming it.
     fn current_token(&self) -> Result<Token> {
         if self.current >= self.tokens.len() {
-            Err(KymeraParserError::UnexpectedEof {
+            Err(ParserError::UnexpectedEof {
                 span: Span::new(Position::new(0, 0, 0), Position::new(0, 0, 0)),
             })
         } else {
@@ -624,7 +624,7 @@ impl Parser {
     /// Returns the next token without consuming it.
     fn peek(&self) -> Result<Token> {
         if self.current >= self.tokens.len() {
-            Err(KymeraParserError::UnexpectedEof {
+            Err(ParserError::UnexpectedEof {
                 span: Span::new(Position::new(0, 0, 0), Position::new(0, 0, 0)),
             })
         } else {
@@ -635,7 +635,7 @@ impl Parser {
     /// Returns the token after the next without consuming it.
     fn peek_next(&self) -> Result<Token> {
         if self.current + 1 >= self.tokens.len() {
-            Err(KymeraParserError::UnexpectedEof {
+            Err(ParserError::UnexpectedEof {
                 span: Span::new(Position::new(0, 0, 0), Position::new(0, 0, 0)),
             })
         } else {
@@ -646,7 +646,7 @@ impl Parser {
     /// Returns the previously consumed token.
     fn previous_token(&self) -> Result<Token> {
         if self.current == 0 {
-            Err(KymeraParserError::UnexpectedEof {
+            Err(ParserError::UnexpectedEof {
                 span: Span::new(Position::new(0, 0, 0), Position::new(0, 0, 0)),
             })
         } else {
@@ -687,11 +687,11 @@ impl Parser {
         }
     }
 
-    fn error(&self, message: impl Into<String>) -> KymeraParserError {
+    fn error(&self, message: impl Into<String>) -> ParserError {
         let span = self.current_token()
             .map(|t| t.span)
             .unwrap_or_else(|_| Span::new(Position::new(0, 0, 0), Position::new(0, 0, 0)));
-        KymeraParserError::Syntax {
+        ParserError::Parser {
             message: message.into(),
             span,
         }

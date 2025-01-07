@@ -89,54 +89,54 @@ kymera-ls/
 ├── .gitignore
 ├── README.md
 ├── benches/
-│   └── performance.rs
+│   └── performance.rs
 ├── build.rs
 ├── crates/
-│   ├── kymera-analysis/
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       ├── analyzer.rs
-│   │       ├── error.rs
-│   │       ├── lib.rs
-│   │       ├── symbols.rs
-│   │       └── types.rs
-│   ├── kymera-parser/
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       ├── ast.rs
-│   │       ├── error.rs
-│   │       ├── lexer.rs
-│   │       ├── lib.rs
-│   │       └── parser.rs
-│   └── kymera-reactor/
-│       ├── Cargo.toml
-│       └── src/
-│           ├── error.rs
-│           ├── lib.rs
-│           ├── traits.rs
-│           └── types.rs
+│   ├── kymera-analysis/
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       ├── analyzer.rs
+│   │       ├── error.rs
+│   │       ├── lib.rs
+│   │       ├── symbols.rs
+│   │       └── types.rs
+│   ├── kymera-parser/
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       ├── ast.rs
+│   │       ├── error.rs
+│   │       ├── lexer.rs
+│   │       ├── lib.rs
+│   │       └── parser.rs
+│   └── kymera-reactor/
+│       ├── Cargo.toml
+│       └── src/
+│           ├── error.rs
+│           ├── lib.rs
+│           ├── traits.rs
+│           └── types.rs
 ├── proto/
-│   └── kymera_mappings.proto
+│   └── kymera_mappings.proto
 ├── src/
-│   ├── analysis/
-│   │   ├── ast.rs
-│   │   ├── mod.rs
-│   │   └── symbols.rs
-│   ├── error.rs
-│   ├── lib.rs
-│   ├── main.rs
-│   ├── proto/
-│   │   ├── generated/
-│   │   │   ├── kymera_mappings.rs
-│   │   │   └── mod.rs
-│   │   ├── helpers.rs
-│   │   ├── mod.rs
-│   │   └── proto_handlers.rs
-│   └── server/
-│       ├── capabilities.rs
-│       ├── handlers.rs
-│       ├── mod.rs
-│       └── state.rs
+│   ├── analysis/
+│   │   ├── ast.rs
+│   │   ├── mod.rs
+│   │   └── symbols.rs
+│   ├── error.rs
+│   ├── lib.rs
+│   ├── main.rs
+│   ├── proto/
+│   │   ├── generated/
+│   │   │   ├── kymera_mappings.rs
+│   │   │   └── mod.rs
+│   │   ├── helpers.rs
+│   │   ├── mod.rs
+│   │   └── proto_handlers.rs
+│   └── server/
+│       ├── capabilities.rs
+│       ├── handlers.rs
+│       ├── mod.rs
+│       └── state.rs
 └── tests/
     ├── e2e/
     └── integration/

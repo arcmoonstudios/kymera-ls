@@ -27,12 +27,22 @@
 
 use std::{sync::Arc, path::Path};
 use thiserror::Error;
-use tokio::sync::{RwLock, Mutex};
-use tower_lsp::lsp_types::*;
-use serde::{Deserialize, Serialize};
 use tokio::time::{timeout, Duration};
-use futures::StreamExt;
-use config::{Config, ConfigError, Environment, File};
+use tower_lsp::lsp_types::{
+    CompletionOptions, HoverProviderCapability, OneOf, ServerCapabilities,
+    TextDocumentSyncCapability, TextDocumentSyncKind, SemanticTokensRegistrationOptions,
+    TextDocumentRegistrationOptions, DocumentFilter, SemanticTokensOptions,
+    SemanticTokensLegend, SignatureHelpOptions, WorkspaceServerCapabilities,
+    WorkspaceFoldersServerCapabilities, TypeDefinitionProviderCapability,
+    ImplementationProviderCapability, SemanticTokensServerCapabilities,
+    WorkDoneProgressOptions, SemanticTokenType, StaticRegistrationOptions,
+    CodeActionProviderCapability, FoldingRangeProviderCapability,
+    CallHierarchyServerCapability, SelectionRangeProviderCapability,
+    SemanticTokensFullOptions,
+};
+use serde::{Deserialize, Serialize};
+use config::{Config, Environment, File};
+use serde_with::serde_as;
 
 /// Enum representing all possible trigger characters for the completion provider.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -150,6 +160,7 @@ impl CapabilitiesError {
 pub type CapabilitiesResult<T> = Result<T, CapabilitiesError>;
 
 /// Provides dynamic configuration for LSP server capabilities.
+#[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapabilitiesConfig {
     pub trigger_characters: Vec<TriggerCharacter>,
@@ -159,7 +170,8 @@ pub struct CapabilitiesConfig {
     #[serde(default = "default_retry_limit")]
     pub max_retries: u32,
     /// Timeout duration for loading the configuration.
-    #[serde(with = "humantime_serde", default = "default_timeout_duration")]
+    #[serde_as(as = "serde_with::DurationSeconds<f64>")]
+    #[serde(default = "default_timeout_duration")]
     pub load_timeout: Duration,
 }
 
@@ -264,7 +276,7 @@ async fn load_dynamic_config(path: &str) -> CapabilitiesResult<CapabilitiesConfi
 }
 
 /// Retrying mechanism with timeouts, based on the advanced error handling pattern.
-async fn with_retry<T, F, Fut>(operation: F, max_retries: u32, timeout_duration: Duration) -> CapabilitiesResult<T>
+async fn with_retry<T, F, Fut>(operation: F, max_retries: u32, _timeout_duration: Duration) -> CapabilitiesResult<T>
 where
     F: Fn() -> Fut,
     Fut: std::future::Future<Output = CapabilitiesResult<T>>,
@@ -306,35 +318,19 @@ pub async fn initialize_capabilities(config_path: &str) -> CapabilitiesResult<Se
     Ok(build_server_capabilities(&config).await)
 }
 
-/// Constructs the LSP `ServerCapabilities` from a validated `CapabilitiesConfig`.
-async fn build_server_capabilities(config: &CapabilitiesConfig) -> ServerCapabilities {
-    // Convert trigger characters into strings
-    let trigger_chars: Vec<String> = config
-        .trigger_characters
-        .iter()
-        .map(|tc| tc.as_str().to_string())
-        .collect();
-
-    // We can introduce concurrency if needed: for demonstration, we trivially map them.
-    let concurrency_semaphore = Arc::new(Mutex::new(()));
-    let mut tasks = vec![];
-    for ch in trigger_chars.clone() {
-        let sem = concurrency_semaphore.clone();
-        tasks.push(tokio::spawn(async move {
-            let _permit = sem.lock().await;
-            ch // trivially return the character
-        }));
-    }
-
-    // Wait for all tasks to complete (illustration of concurrency usage).
-    let _ = futures::future::join_all(tasks).await;
-
-    // Create the final capabilities structure
+/// Builds the server capabilities based on the provided configuration.
+pub async fn build_server_capabilities(config: &CapabilitiesConfig) -> ServerCapabilities {
     ServerCapabilities {
         text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::INCREMENTAL)),
         completion_provider: Some(CompletionOptions {
             resolve_provider: Some(false),
-            trigger_characters: Some(trigger_chars),
+            trigger_characters: Some(
+                config
+                    .trigger_characters
+                    .iter()
+                    .map(|c| c.as_str().to_string())
+                    .collect(),
+            ),
             ..Default::default()
         }),
         hover_provider: Some(HoverProviderCapability::Simple(true)),
@@ -379,18 +375,7 @@ async fn build_server_capabilities(config: &CapabilitiesConfig) -> ServerCapabil
                                 SemanticTokenType::OPERATOR,
                                 SemanticTokenType::KEYWORD,
                             ],
-                            token_modifiers: vec![
-                                SemanticTokenModifier::DECLARATION,
-                                SemanticTokenModifier::DEFINITION,
-                                SemanticTokenModifier::READONLY,
-                                SemanticTokenModifier::STATIC,
-                                SemanticTokenModifier::DEPRECATED,
-                                SemanticTokenModifier::ABSTRACT,
-                                SemanticTokenModifier::ASYNC,
-                                SemanticTokenModifier::MODIFICATION,
-                                SemanticTokenModifier::DOCUMENTATION,
-                                SemanticTokenModifier::DEFAULT_LIBRARY,
-                            ],
+                            token_modifiers: vec![],
                         },
                         range: Some(false),
                         full: Some(SemanticTokensFullOptions::Delta { delta: Some(true) }),
@@ -410,6 +395,9 @@ async fn build_server_capabilities(config: &CapabilitiesConfig) -> ServerCapabil
             retrigger_characters: None,
             work_done_progress_options: WorkDoneProgressOptions::default(),
         }),
+        document_link_provider: None,
+        color_provider: None,
+        execute_command_provider: None,
         workspace: Some(WorkspaceServerCapabilities {
             workspace_folders: Some(WorkspaceFoldersServerCapabilities {
                 supported: Some(true),
@@ -419,6 +407,25 @@ async fn build_server_capabilities(config: &CapabilitiesConfig) -> ServerCapabil
         }),
         call_hierarchy_provider: Some(CallHierarchyServerCapability::Simple(true)),
         selection_range_provider: Some(SelectionRangeProviderCapability::Simple(true)),
+        ..Default::default()
+    }
+}
+
+/// Builds basic server capabilities with minimal functionality.
+/// Used as a fallback when dynamic configuration fails.
+pub fn build_basic_server_capabilities() -> ServerCapabilities {
+    ServerCapabilities {
+        text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::INCREMENTAL)),
+        completion_provider: Some(CompletionOptions {
+            resolve_provider: Some(false),
+            trigger_characters: Some(vec![":".to_string(), ">".to_string(), "|".to_string()]),
+            ..Default::default()
+        }),
+        hover_provider: Some(HoverProviderCapability::Simple(true)),
+        definition_provider: Some(OneOf::Left(true)),
+        references_provider: Some(OneOf::Left(true)),
+        document_symbol_provider: Some(OneOf::Left(true)),
+        workspace_symbol_provider: Some(OneOf::Left(true)),
         ..Default::default()
     }
 }
@@ -480,6 +487,7 @@ pub async fn process_items_concurrently<I, T, F, Fut>(
 where
     I: IntoIterator,
     I::Item: Send + 'static,
+    T: Send + 'static,
     F: Fn(I::Item) -> Fut + Send + Sync + Clone + 'static,
     Fut: std::future::Future<Output = CapabilitiesResult<T>> + Send + 'static,
 {
@@ -505,4 +513,35 @@ where
     }
 
     Ok(results)
+}
+
+/// Execute an operation with retry and timeout logic.
+pub async fn execute<T, F, Fut>(operation: F, max_retries: u32, timeout_duration: Duration) -> CapabilitiesResult<T>
+where
+    T: Send + 'static,
+    F: Fn() -> Fut + Send + Sync + 'static,
+    Fut: std::future::Future<Output = CapabilitiesResult<T>> + Send + 'static,
+{
+    let mut attempts = 0;
+    loop {
+        attempts += 1;
+        match timeout(timeout_duration, operation()).await {
+            Ok(Ok(result)) => return Ok(result),
+            Ok(Err(e)) if e.is_retryable() && attempts <= max_retries => {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                continue;
+            }
+            Ok(Err(e)) => return Err(e),
+            Err(e) => {
+                if attempts <= max_retries {
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    continue;
+                }
+                return Err(CapabilitiesError::Timeout {
+                    duration: timeout_duration,
+                    source: Box::new(e),
+                });
+            }
+        }
+    }
 }

@@ -2,13 +2,12 @@
 //! This crate provides shared functionality used across the Kymera ecosystem.
 
 pub mod err;
-pub mod types;
 pub mod utils;
 
-pub use err::{Error, Result};
+pub use err::{CoreError, Result};
 
 /// Re-export common traits and types
 pub mod prelude {
-    pub use crate::err::{Error, Result};
+    pub use crate::err::{CoreError, Result};
     pub use crate::utils::*;
 }

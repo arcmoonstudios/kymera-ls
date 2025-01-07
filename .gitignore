@@ -22,3 +22,30 @@ Cargo.lock
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Test files
+test.ky
+tests/kymera/*.ky
+
+# Build artifacts
+dist/
+out/
+
+# VS Code extension
+.vsix
+node_modules/
+
+# Generated files
+**/*.generated.*
+**/generated/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+*.pid
+*.seed
+*.pid.lock

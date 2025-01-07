@@ -7,15 +7,17 @@
 //! - Type system representations
 //! - Error handling and results
 
-use std::{fmt::Debug, sync::Arc};
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
+use std::fmt::Debug;
+use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
 
-/// Core result type for reactor operations
+use crate::err::ReactorError;
+
+/// Result type for reactor operations
 pub type ReactorResult<T> = Result<T, ReactorError>;
 
-/// Result type for module-level operations
-pub type ModuleResult<T> = Result<T, ModuleError>;
+/// Result type for module operations
+pub type ModuleResult<T> = Result<T, ReactorError>;
 
 /// Neural analysis output
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -668,6 +670,4 @@ pub enum AttributeArg {
     Int(i64),
     /// Boolean argument
     Bool(bool),
-}
-
-use std::collections::HashMap; 
+} 

@@ -1,4 +1,4 @@
-use crate::err::{KymeraParserError, Result};
+use crate::err::{ParserError, Result};
 use crate::position::{Position, Span};
 
 /// Represents the types of tokens in the Kymera language.
@@ -467,8 +467,8 @@ impl<'a> Lexer<'a> {
     }
 
     /// Creates an error with the given message at the current position.
-    fn error(&self, message: impl Into<String>) -> KymeraParserError {
-        KymeraParserError::Lexer {
+    fn error(&self, message: impl Into<String>) -> ParserError {
+        ParserError::Lexer {
             message: message.into(),
             span: Span::new(self.current_pos, self.current_pos),
         }

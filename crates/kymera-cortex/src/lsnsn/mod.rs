@@ -8,6 +8,7 @@ use num_complex::Complex64;
 
 use crate::err::Result;
 
+pub mod conversions;
 pub mod quantum;
 pub mod learning;
 pub mod reservoir;

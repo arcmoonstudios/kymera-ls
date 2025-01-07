@@ -6,8 +6,7 @@ pub mod err;
 pub mod traits;
 pub mod types;
 
-
-pub use err::{Error, Result};
+pub use err::ReactorError;
 pub use traits::*;
-pub use types::*;
+pub use types::{ReactorResult, ModuleResult};
 

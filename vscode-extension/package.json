@@ -1,0 +1,41 @@
+{
+  "name": "kymera-language",
+  "displayName": "Kymera Language",
+  "description": "Language support for Kymera",
+  "version": "0.1.0",
+  "publisher": "arcmoonstudios",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "main": "./extension.js",
+  "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Formatters"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "kymera",
+      "aliases": ["Kymera", "kymera"],
+      "extensions": [".ky"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "kymera",
+      "scopeName": "source.kymera",
+      "path": "./syntaxes/kymera.tmLanguage.json"
+    }],
+    "configuration": {
+      "type": "object",
+      "title": "Kymera",
+      "properties": {
+        "kymeraLanguageServer.trace.server": {
+          "type": "string",
+          "enum": ["off", "messages", "verbose"],
+          "default": "verbose",
+          "description": "Traces the communication between VS Code and the Kymera language server."
+        }
+      }
+    }
+  }
+} 

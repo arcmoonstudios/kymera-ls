@@ -2,7 +2,7 @@
 // For example:
 
 use crate::ast::AstNode;
-use crate::err::{KymeraParserError, Result};
+use crate::err::{ParserError, Result};
 use crate::position::Span;
 
 /// Checks if the given AST node is a valid expression.
@@ -33,7 +33,7 @@ pub fn is_valid_enum(node: &AstNode) -> bool {
 /// Validates that an expression node is of the expected type
 pub fn validate_expression(node: &AstNode, expected: &str, span: Span) -> Result<()> {
     if !is_valid_expression(node) {
-        return Err(KymeraParserError::Parser {
+        return Err(ParserError::Parser {
             message: format!("Expected {}, found statement", expected),
             span,
         });
@@ -44,7 +44,7 @@ pub fn validate_expression(node: &AstNode, expected: &str, span: Span) -> Result
 /// Validates that a statement node is of the expected type
 pub fn validate_statement(node: &AstNode, expected: &str, span: Span) -> Result<()> {
     if !is_valid_statement(node) {
-        return Err(KymeraParserError::Parser {
+        return Err(ParserError::Parser {
             message: format!("Expected {}, found expression", expected),
             span,
         });
@@ -55,7 +55,7 @@ pub fn validate_statement(node: &AstNode, expected: &str, span: Span) -> Result<
 /// Validates that a node is a function definition
 pub fn validate_function(node: &AstNode, span: Span) -> Result<()> {
     if !is_valid_function(node) {
-        return Err(KymeraParserError::Parser {
+        return Err(ParserError::Parser {
             message: "Expected function definition".to_string(),
             span,
         });
@@ -66,7 +66,7 @@ pub fn validate_function(node: &AstNode, span: Span) -> Result<()> {
 /// Validates that a node is a struct definition
 pub fn validate_struct(node: &AstNode, span: Span) -> Result<()> {
     if !is_valid_struct(node) {
-        return Err(KymeraParserError::Parser {
+        return Err(ParserError::Parser {
             message: "Expected struct definition".to_string(),
             span,
         });
@@ -77,7 +77,7 @@ pub fn validate_struct(node: &AstNode, span: Span) -> Result<()> {
 /// Validates that a node is an enum definition
 pub fn validate_enum(node: &AstNode, span: Span) -> Result<()> {
     if !is_valid_enum(node) {
-        return Err(KymeraParserError::Parser {
+        return Err(ParserError::Parser {
             message: "Expected enum definition".to_string(),
             span,
         });

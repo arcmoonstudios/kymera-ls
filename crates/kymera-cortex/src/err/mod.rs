@@ -1,55 +1,164 @@
 //! Error types for the Kymera cortex.
 //! 
-//! This module provides a comprehensive error handling system for the Kymera cortex,
-//! using thiserror for defining error types and anyhow for error context and propagation.
-//! 
-//! # Error Hierarchy
-//! - CortexError: Top-level error type that encompasses all possible errors
-//!   - NeuralError: Neural network specific errors
-//!   - QuantumError: Quantum computation errors
-//!   - StateError: State management errors
-//!   - SystemError: System-level errors
-//!   - VerxError: AI debugger errors
-//!   - MTALRError: Meta-Turing Adaptive Learning errors
-//!   - CoreError: Core processing errors
-//!   - LearningError: Learning system errors
-//!   - TapeError: Tape management errors
-//!   - AdaptiveError: Adaptive reasoning errors
-//!   - ContextError: Context management errors
+//! This module provides specialized error types for neural network operations,
+//! quantum computing, and AI debugging functionality.
 
-pub use thiserror::Error;
-pub use anyhow::{Context, Result, anyhow, bail, ensure};
-use std::fmt::Display;
+use thiserror::Error;
+use crate::{
+    lsnsn::{quantum, learning, reservoir},
+    mtalr::MTALRError,
+};
 
-/// Neural-specific error type
+/// Core error type for the Kymera cortex
 #[derive(Debug, Error)]
-pub enum NeuralError {
-    #[error("Initialization error: {0}")]
+pub enum CortexError {
+    #[error("VERX error: {0}")]
+    Verx(#[from] VerxError),
+
+    #[error("MTALR error: {0}")]
+    Mtalr(#[from] MtalrError),
+
+    #[error("LSNSN error: {0}")]
+    Lsnsn(#[from] LsnsnError),
+
+    #[error("Tape error: {0}")]
+    Tape(TapeError),
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("Internal error: {0}")]
+    Internal(String),
+}
+
+/// VERX AI debugger error type
+#[derive(Debug, Error)]
+pub enum VerxError {
+    #[error("Context error: {0}")]
+    Context(#[from] ContextError),
+
+    #[error("Analysis error: {0}")]
+    Analysis(String),
+
+    #[error("Pattern matching error: {0}")]
+    PatternMatching(String),
+
+    #[error("Debug trace error: {0}")]
+    Trace(String),
+
+    #[error("Breakpoint error: {0}")]
+    Breakpoint(String),
+}
+
+/// Context management error type
+#[derive(Debug, Error)]
+pub enum ContextError {
+    #[error("Context initialization error: {0}")]
     Initialization(String),
 
+    #[error("Context update error: {0}")]
+    Update(String),
+
+    #[error("Context validation error: {0}")]
+    Validation(String),
+
+    #[error("Context persistence error: {0}")]
+    Persistence(String),
+}
+
+/// MTALR (Meta-Turing Adaptive Learning & Reasoning) error type
+#[derive(Debug, Error)]
+pub enum MtalrError {
+    #[error("Core error: {0}")]
+    Core(#[from] CoreError),
+
+    #[error("Learning error: {0}")]
+    Learning(#[from] LearningError),
+
+    #[error("Tape error: {0}")]
+    Tape(#[from] TapeError),
+
+    #[error("Reasoning error: {0}")]
+    Reasoning(String),
+
+    #[error("Meta-learning error: {0}")]
+    MetaLearning(String),
+}
+
+/// Core processing error type
+#[derive(Debug, Error)]
+pub enum CoreError {
+    #[error("Processing error: {0}")]
+    Processing(String),
+
+    #[error("Memory error: {0}")]
+    Memory(String),
+
+    #[error("Computation error: {0}")]
+    Computation(String),
+}
+
+/// Learning system error type
+#[derive(Debug, Error)]
+pub enum LearningError {
     #[error("Training error: {0}")]
     Training(String),
 
-    #[error("Inference error: {0}")]
-    Inference(String),
+    #[error("Optimization error: {0}")]
+    Optimization(String),
 
-    #[error("Shape mismatch: {0}")]
-    ShapeMismatch(String),
+    #[error("Model validation error: {0}")]
+    ModelValidation(String),
 
-    #[error("Device error: {0}")]
-    Device(String),
-
-    #[error("Gradient computation error: {0}")]
-    Gradient(String),
-
-    #[error("Backpropagation error: {0}")]
-    Backpropagation(String),
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
+    #[error("Dataset error: {0}")]
+    Dataset(String),
 }
 
-/// Quantum-specific error type
+/// Tape management error type
+#[derive(Debug, Error, PartialEq, Clone)]
+pub enum TapeError {
+    #[error("Invalid symbol: {0}")]
+    InvalidSymbol(String),
+
+    #[error("Out of bounds access: {0}")]
+    OutOfBounds(String),
+
+    #[error("Quantum state error: {0}")]
+    QuantumError(String),
+
+    #[error("Time error: {0}")]
+    TimeError(String),
+
+    #[error("Read error: {0}")]
+    Read(String),
+
+    #[error("Write error: {0}")]
+    Write(String),
+
+    #[error("Seek error: {0}")]
+    Seek(String),
+
+    #[error("Bounds error: {0}")]
+    Bounds(String),
+}
+
+/// LSNSN (Liquid State NeuroSymbolic Network) error type
+#[derive(Debug, Error)]
+pub enum LsnsnError {
+    #[error("Quantum error: {0}")]
+    Quantum(#[from] QuantumError),
+
+    #[error("Reservoir error: {0}")]
+    Reservoir(#[from] ReservoirError),
+
+    #[error("Learning error: {0}")]
+    Learning(String),
+
+    #[error("Conversion error: {0}")]
+    Conversion(String),
+}
+
+/// Quantum computation error type
 #[derive(Debug, Error)]
 pub enum QuantumError {
     #[error("Circuit error: {0}")]
@@ -63,319 +172,127 @@ pub enum QuantumError {
 
     #[error("Decoherence error: {0}")]
     Decoherence(String),
-
-    #[error("Quantum gate error: {0}")]
-    Gate(String),
-
-    #[error("Entanglement error: {0}")]
-    Entanglement(String),
-
-    #[error("Quantum memory error: {0}")]
-    Memory(String),
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }
 
-/// State management error type
+/// Reservoir computing error type
 #[derive(Debug, Error)]
-pub enum StateError {
-    #[error("State initialization error: {0}")]
+pub enum ReservoirError {
+    #[error("Initialization error: {0}")]
     Initialization(String),
 
     #[error("State update error: {0}")]
     Update(String),
 
-    #[error("State compression error: {0}")]
-    Compression(String),
-
-    #[error("History tracking error: {0}")]
-    History(String),
-
-    #[error("State validation error: {0}")]
-    Validation(String),
-
-    #[error("State persistence error: {0}")]
-    Persistence(String),
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
+    #[error("Readout error: {0}")]
+    Readout(String),
 }
 
-/// System-level error type
-#[derive(Debug, Error)]
-pub enum SystemError {
-    #[error("Configuration error: {0}")]
-    Configuration(String),
-
-    #[error("Resource error: {0}")]
-    Resource(String),
-
-    #[error("Concurrency error: {0}")]
-    Concurrency(String),
-
-    #[error("IO error")]
-    Io(#[from] std::io::Error),
-
-    #[error("Memory allocation error: {0}")]
-    MemoryAllocation(String),
-
-    #[error("Thread error: {0}")]
-    Thread(String),
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-/// VERX AI debugger error type
-#[derive(Debug, Error)]
-pub enum VerxError {
-    #[error("Analysis error: {0}")]
-    Analysis(String),
-
-    #[error("Pattern matching error: {0}")]
-    PatternMatching(String),
-
-    #[error("Context error: {0}")]
-    Context(String),
-
-    #[error("Quantum debugging error")]
-    QuantumDebugging(#[from] QuantumError),
-
-    #[error("Debug trace error: {0}")]
-    Trace(String),
-
-    #[error("Breakpoint error: {0}")]
-    Breakpoint(String),
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-/// Meta-Turing Adaptive Learned Reasoning error type
-#[derive(Debug, Error)]
-pub enum MTALRError {
-    #[error("Core error")]
-    Core(#[from] CoreError),
-
-    #[error("Learning error")]
-    Learning(#[from] LearningError),
-
-    #[error("Tape error")]
-    Tape(#[from] TapeError),
-
-    #[error("Adaptive error")]
-    Adaptive(#[from] AdaptiveError),
-
-    #[error("Reasoning error: {0}")]
-    Reasoning(String),
-
-    #[error("Meta-learning error: {0}")]
-    MetaLearning(String),
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-/// Core processing error type
-#[derive(Debug, Error)]
-pub enum CoreError {
-    #[error("Processing error: {0}")]
-    Processing(String),
-
-    #[error("Memory error: {0}")]
-    Memory(String),
-
-    #[error("State error")]
-    State(#[from] StateError),
-
-    #[error("Computation error: {0}")]
-    Computation(String),
-
-    #[error("Resource allocation error: {0}")]
-    ResourceAllocation(String),
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-/// Learning system error type
-#[derive(Debug, Error)]
-pub enum LearningError {
-    #[error("Training error: {0}")]
-    Training(String),
-
-    #[error("Optimization error: {0}")]
-    Optimization(String),
-
-    #[error("Neural error")]
-    Neural(#[from] NeuralError),
-
-    #[error("Model validation error: {0}")]
-    ModelValidation(String),
-
-    #[error("Dataset error: {0}")]
-    Dataset(String),
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-/// Tape management error type
-#[derive(Debug, Error)]
-pub enum TapeError {
-    #[error("Read error: {0}")]
-    Read(String),
-
-    #[error("Write error: {0}")]
-    Write(String),
-
-    #[error("Seek error: {0}")]
-    Seek(String),
-
-    #[error("Bounds error: {0}")]
-    Bounds(String),
-
-    #[error("Quantum state error: {0}")]
-    QuantumState(String),
-
-    #[error("Time error: {0}")]
-    Time(String),
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-/// Adaptive reasoning error type
-#[derive(Debug, Error)]
-pub enum AdaptiveError {
-    #[error("Pattern error: {0}")]
-    Pattern(String),
-
-    #[error("Memory error: {0}")]
-    Memory(String),
-
-    #[error("Reasoning error: {0}")]
-    Reasoning(String),
-
-    #[error("Adaptation error: {0}")]
-    Adaptation(String),
-
-    #[error("Strategy error: {0}")]
-    Strategy(String),
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-/// Context management error type
-#[derive(Debug, Error)]
-pub enum ContextError {
-    #[error("Context initialization error: {0}")]
-    Initialization(String),
-
-    #[error("Context update error: {0}")]
-    Update(String),
-
-    #[error("Context search error: {0}")]
-    Search(String),
-
-    #[error("Context validation error: {0}")]
-    Validation(String),
-
-    #[error("Context persistence error: {0}")]
-    Persistence(String),
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-/// Main error type for the Kymera cortex
-#[derive(Debug, Error)]
-pub enum CortexError {
-    #[error("Neural error")]
-    Neural(#[from] NeuralError),
-
-    #[error("Quantum error")]
-    Quantum(#[from] QuantumError),
-
-    #[error("State error")]
-    State(#[from] StateError),
-
-    #[error("System error")]
-    System(#[from] SystemError),
-
-    #[error("VERX error")]
-    Verx(#[from] VerxError),
-
-    #[error("MTALR error")]
-    MTALR(#[from] MTALRError),
-
-    #[error("Core error")]
-    Core(#[from] CoreError),
-
-    #[error("Learning error")]
-    Learning(#[from] LearningError),
-
-    #[error("Tape error")]
-    Tape(#[from] TapeError),
-
-    #[error("Adaptive error")]
-    Adaptive(#[from] AdaptiveError),
-
-    #[error("Context error")]
-    Context(#[from] ContextError),
-
-    #[error("Internal error: {0}")]
-    Internal(String),
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
+/// Result type alias for cortex operations
+pub type Result<T> = std::result::Result<T, CortexError>;
+
+// Also expose specific Result types for each subsystem
+pub type VerxResult<T> = Result<T>;
+pub type MtalrResult<T> = Result<T>;
+pub type LsnsnResult<T> = Result<T>;
+pub type TapeResult<T> = std::result::Result<T, TapeError>;
 
 /// Helper trait for adding context to errors
-pub trait ErrorExt<T> {
-    /// Adds context to an error using anyhow's Context trait
-    fn with_ctx<C, F>(self, context: F) -> Result<T>
+pub trait Context<T, E> {
+    fn context<C>(self, context: C) -> Result<T>
     where
-        C: Display + Send + Sync + 'static,
+        C: std::fmt::Display + Send + Sync + 'static;
+
+    fn with_context<C, F>(self, f: F) -> Result<T>
+    where
+        C: std::fmt::Display + Send + Sync + 'static,
         F: FnOnce() -> C;
 }
 
-impl<T, E> ErrorExt<T> for Result<T, E>
+impl<T, E> Context<T, E> for std::result::Result<T, E>
 where
     E: std::error::Error + Send + Sync + 'static,
 {
-    fn with_ctx<C, F>(self, context: F) -> Result<T>
+    fn context<C>(self, context: C) -> Result<T>
     where
-        C: Display + Send + Sync + 'static,
+        C: std::fmt::Display + Send + Sync + 'static,
+    {
+        self.map_err(|e| CortexError::Internal(format!("{}: {}", context, e)))
+    }
+
+    fn with_context<C, F>(self, f: F) -> Result<T>
+    where
+        C: std::fmt::Display + Send + Sync + 'static,
         F: FnOnce() -> C,
     {
-        self.map_err(|e| anyhow::Error::new(e).context(context()))
+        self.map_err(|e| CortexError::Internal(format!("{}: {}", f(), e)))
     }
 }
 
-// Helper functions for common error patterns
-pub mod prelude {
-    pub use super::*;
-
-    /// Creates a new error with context
-    pub fn with_context<T, C>(result: Result<T>, context: C) -> Result<T>
-    where
-        C: Display + Send + Sync + 'static,
-    {
-        result.context(context)
+// Implement conversions between error types
+impl From<ContextError> for CortexError {
+    fn from(err: ContextError) -> Self {
+        Self::Verx(VerxError::Context(err))
     }
+}
 
-    /// Ensures a condition is true, otherwise returns an error
-    pub fn ensure_with<T>(condition: bool, error: T) -> Result<()>
-    where
-        T: std::error::Error + Send + Sync + 'static,
-    {
-        if condition {
-            Ok(())
-        } else {
-            Err(anyhow::Error::new(error))
+impl From<CoreError> for CortexError {
+    fn from(err: CoreError) -> Self {
+        Self::Mtalr(MtalrError::Core(err))
+    }
+}
+
+impl From<LearningError> for CortexError {
+    fn from(err: LearningError) -> Self {
+        Self::Mtalr(MtalrError::Learning(err))
+    }
+}
+
+impl From<TapeError> for CortexError {
+    fn from(err: TapeError) -> Self {
+        Self::Tape(err)
+    }
+}
+
+impl From<QuantumError> for CortexError {
+    fn from(err: QuantumError) -> Self {
+        Self::Lsnsn(LsnsnError::Quantum(err))
+    }
+}
+
+impl From<ReservoirError> for CortexError {
+    fn from(err: ReservoirError) -> Self {
+        Self::Lsnsn(LsnsnError::Reservoir(err))
+    }
+}
+
+// Add From implementations for reservoir errors
+impl From<reservoir::ReservoirError> for CortexError {
+    fn from(err: reservoir::ReservoirError) -> Self {
+        CortexError::Internal(format!("Reservoir error: {}", err))
+    }
+}
+
+// Add From implementations for quantum errors
+impl From<quantum::QuantumError> for CortexError {
+    fn from(err: quantum::QuantumError) -> Self {
+        CortexError::Internal(format!("Quantum error: {}", err))
+    }
+}
+
+// Add From implementations for learning errors
+impl From<learning::LearningError> for CortexError {
+    fn from(err: learning::LearningError) -> Self {
+        CortexError::Internal(format!("Learning error: {}", err))
+    }
+}
+
+// Add From implementation for converting Error to MTALRError
+impl From<CortexError> for MTALRError {
+    fn from(err: CortexError) -> Self {
+        match err {
+            CortexError::Mtalr(e) => MTALRError::Other(e.to_string()),
+            CortexError::Internal(msg) => MTALRError::Other(msg),
+            _ => MTALRError::Other(err.to_string())
         }
     }
 }

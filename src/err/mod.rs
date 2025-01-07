@@ -13,16 +13,16 @@ pub enum Error {
     Io(#[from] std::io::Error),
 
     #[error("Parser error: {0}")]
-    Parser(#[from] kymera_parser::err::Error),
+    Parser(#[from] kymera_parser::err::ParserError),
 
     #[error("Analysis error: {0}")]
-    Analysis(#[from] kymera_analysis::err::Error),
+    Analysis(#[from] kymera_analysis::err::AnalysisError),
 
     #[error("Reactor error: {0}")]
-    Reactor(#[from] kymera_reactor::err::Error),
+    Reactor(#[from] kymera_reactor::err::ReactorError),
 
     #[error("Core error: {0}")]
-    Core(#[from] kymera_core::error::Error),
+    Core(#[from] kymera_core::err::CoreError),
 
     #[error("Protocol error: {0}")]
     Protocol(String),

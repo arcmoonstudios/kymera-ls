@@ -1,75 +1,35 @@
 //! Error types for the Kymera reactor.
 
 use thiserror::Error;
+use kymera_parser::err::ParserError;
+use kymera_analysis::err::AnalysisError;
 
-/// Compilation error type
+/// Error type for reactor operations
 #[derive(Debug, Error)]
-pub enum CompileError {
-    #[error("Parsing error: {0}")]
-    Parse(String),
-
-    #[error("Type error: {0}")]
-    Type(String),
-
-    #[error("Code generation error: {0}")]
-    CodeGen(String),
-
-    #[error("Optimization error: {0}")]
-    Optimization(String),
-}
-
-/// Runtime error type
-#[derive(Debug, Error)]
-pub enum RuntimeError {
-    #[error("Memory error: {0}")]
-    Memory(String),
-
-    #[error("Execution error: {0}")]
-    Execution(String),
-
-    #[error("Resource error: {0}")]
-    Resource(String),
-
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-}
-
-/// GPU acceleration error type
-#[derive(Debug, Error)]
-pub enum GPUError {
-    #[error("Device error: {0}")]
-    Device(String),
-
-    #[error("Memory error: {0}")]
-    Memory(String),
-
-    #[error("Kernel error: {0}")]
-    Kernel(String),
-
-    #[error("Synchronization error: {0}")]
-    Sync(String),
-}
-
-/// Main error type for the Kymera reactor
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("Compilation error: {0}")]
-    Compile(#[from] CompileError),
-
-    #[error("Runtime error: {0}")]
-    Runtime(#[from] RuntimeError),
-
-    #[error("GPU error: {0}")]
-    GPU(#[from] GPUError),
-
+pub enum ReactorError {
+    /// Parser errors
     #[error("Parser error: {0}")]
-    Parser(#[from] kymera_parser::err::Error),
+    Parser(#[from] ParserError),
 
+    /// Analysis errors
     #[error("Analysis error: {0}")]
-    Analysis(#[from] kymera_analysis::err::Error),
+    Analysis(#[from] AnalysisError),
 
-    #[error("Internal error: {0}")]
-    Internal(String),
+    /// Engine errors
+    #[error("Engine error: {0}")]
+    EngineError(String),
+
+    /// I/O errors
+    #[error("I/O error: {0}")]
+    IoError(#[from] std::io::Error),
+
+    /// Configuration errors
+    #[error("Configuration error: {0}")]
+    ConfigError(String),
+
+    /// Module errors
+    #[error("Module error: {0}")]
+    ModuleError(String),
 }
 
-pub type Result<T> = std::result::Result<T, Error>; 
+pub type Result<T> = std::result::Result<T, ReactorError>; 

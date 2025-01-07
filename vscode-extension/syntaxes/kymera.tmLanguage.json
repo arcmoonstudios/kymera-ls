@@ -1,0 +1,53 @@
+{
+    "name": "Kymera",
+    "scopeName": "source.kymera",
+    "patterns": [
+        {
+            "include": "#comments"
+        },
+        {
+            "include": "#keywords"
+        },
+        {
+            "include": "#strings"
+        }
+    ],
+    "repository": {
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line.kymera",
+                    "match": "\\|>.*$"
+                },
+                {
+                    "name": "comment.block.documentation.kymera",
+                    "begin": "\\|D>",
+                    "end": "<D\\|"
+                }
+            ]
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.control.kymera",
+                    "match": "\\b(des|fnc|forma|enum|imp|soy|sn>|xn>|w>\\?|r\\?|m>|4>)\\b"
+                }
+            ]
+        },
+        "strings": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.kymera",
+                    "begin": "\"",
+                    "end": "\"",
+                    "patterns": [
+                        {
+                            "name": "constant.character.escape.kymera",
+                            "match": "\\\\."
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+} 

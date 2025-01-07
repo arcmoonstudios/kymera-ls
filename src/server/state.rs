@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 use config::{Config, ConfigError, Environment, File};
 use metrics::{counter, histogram};
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 use thiserror::Error;
 use tokio::sync::{Notify, RwLock};
 use tokio::time::timeout;
@@ -76,6 +77,7 @@ impl ServerStateError {
 }
 
 /// Configuration for the module, adhering to best practices.
+#[serde_as]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ModuleConfig {
     /// Maximum number of documents that can be stored.
@@ -83,7 +85,8 @@ pub struct ModuleConfig {
     pub max_documents: usize,
 
     /// Timeout for requests in seconds.
-    #[serde(with = "humantime_serde", default = "default_request_timeout")]
+    #[serde_as(as = "serde_with::DurationSeconds<f64>")]
+    #[serde(default = "default_request_timeout")]
     pub request_timeout: Duration,
 
     // Extend with more fields as necessary, e.g. feature flags, logging levels, etc.
@@ -123,20 +126,16 @@ impl MetricsCollector {
     }
 
     /// Records an operation's duration and increments its counter.
-    #[instrument(skip(self, name))]
+    #[instrument(skip(self))]
     pub fn record_operation(&self, name: &str, duration: Duration) {
         let duration_secs = duration.as_secs_f64();
-        histogram!(
-            format!("{}_{}_duration_seconds", self.prefix, name),
-            duration_secs,
-            "operation" => name
-        );
-        counter!(
-            format!("{}_{}_total", self.prefix, name),
-            1,
-            "operation" => name
-        );
-        debug!("Operation '{name}' took {duration_secs:.4} seconds");
+        let name = name.to_string();
+        let metric_name = format!("{}_{}_duration_seconds", self.prefix, name);
+        let counter_name = format!("{}_{}_total", self.prefix, name);
+
+        histogram!(metric_name, duration_secs, "operation" => name.clone());
+        counter!(counter_name, 1, "operation" => name.clone());
+        debug!("Operation '{}' took {:.4} seconds", name, duration_secs);
     }
 
     /// Records an error occurrence.
@@ -282,7 +281,7 @@ mod tests {
     async fn test_document_operations() -> ServerStateResult<()> {
         let config = ModuleConfig::new()?;
         let metrics = Arc::new(MetricsCollector::new("server_state".to_string()));
-        let state = ServerState::new(config, metrics);
+        let state = ServerState::<String>::new(config, metrics);
 
         let uri = "test_uri".to_string();
         let content = "test_content".to_string();

@@ -3,29 +3,45 @@ name = "kymera-reactor"
 version = "0.1.0"
 edition = "2021"
 authors = ["Lord Xyn <LordXyn@proton.me>"]
-description = "Reactive compiler for the Kymera Programming Language"
+description = "Reactive compilation and neural network analysis system for Kymera"
 license = "MIT"
 
 [dependencies]
-# Error Handling
+# Core dependencies
+serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0.7"
 anyhow = "1.0.94"
+config = "0.13"
+secrecy = "0.8"
+zeroize = { version = "1.6", features = ["derive"] }
+constant_time_eq = "0.3"
+num_cpus = "1.16"
+mockall = "0.12"
 
 # Async Runtime
-tokio = { version = "1.35.1", features = ["full"] }
+tokio = { version = "1.35", features = ["full", "rt-multi-thread"] }
 async-trait = "0.1"
+futures = "0.3"
 
-# Utilities
-derivative = "2.2"
+# Concurrency & Synchronization
 parking_lot = "0.12"
+bytes = "1.5"
 
-# Logging & Telemetry
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# Logging & Metrics
+tracing = { version = "0.1", features = ["attributes"] }
 metrics = "0.17"
-tracing-futures = "0.2"
+humantime-serde = "1.1"
 
-# ML & GPU Acceleration
-tch = "0.18"  # PyTorch bindings
-ort = "2.0.0-rc.9"   # ONNX Runtime
-wgpu = "0.19" # GPU Compute 
+# Workspace Dependencies
+kymera-analysis = { path = "../kymera-analysis" }
+kymera-parser = { path = "../kymera-parser" }
+
+[dev-dependencies]
+tokio-test = "0.4"
+criterion = "0.5"
+proptest = "1.0"
+
+[features]
+default = ["metrics", "tracing"]
+metrics = []
+tracing = [] 

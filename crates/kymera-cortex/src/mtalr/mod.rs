@@ -41,8 +41,8 @@ use self::{
     core::{ComputationState, MetaTuringCore as MetaCore},
     learning::{LearningError, AdaptiveLearning},
     reasoning::adaptive::{AdaptiveError, AdaptiveReasoner, AdaptiveReasoning, AdaptiveConfig},
-    tape::TapeError,
 };
+use crate::err::TapeError;
 
 type AsyncRwLock<T> = Arc<RwLock<T>>;
 

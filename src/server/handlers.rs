@@ -18,19 +18,18 @@ use std::{
 use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::{
-    CallHierarchyProviderCapability, CodeActionProviderCapability, CompletionItem,
+    CompletionItem, CompletionOptions,
     CompletionParams, CompletionResponse, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
     Hover, HoverContents, HoverParams, HoverProviderCapability, InitializeParams, InitializeResult,
-    InitializedParams, MarkupContent, MarkupKind, MessageType, OneOf, ServerCapabilities,
-    ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind,
+    InitializedParams, MarkupContent, MarkupKind, MessageType, ServerCapabilities, ServerInfo,
+    TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 use tower_lsp::LanguageServer;
+
 use tracing::{debug, error, info, instrument};
 
-use crate::capabilities::{
-    initialize_capabilities, fallback_completion_options, CapabilitiesError,
-};
-use crate::KymeraLanguageServer;
+use crate::server::capabilities::initialize_capabilities;
+use crate::server::KymeraLanguageServer;
 
 // -----------------------------------------------------------------------------
 // Global server state
@@ -38,12 +37,14 @@ use crate::KymeraLanguageServer;
 
 /// Global state for the Kymera server.
 /// Stores documents with **type-safe** concurrency via `RwLock`.
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct KymeraServerState {
     /// Open documents mapped by URI, concurrently accessed.
     documents: Arc<RwLock<HashMap<String, String>>>,
 }
 
+#[allow(dead_code)]
 impl KymeraServerState {
     /// Creates a new instance with an empty document store.
     pub fn new() -> Self {
@@ -70,6 +71,7 @@ impl KymeraServerState {
 // -----------------------------------------------------------------------------
 
 /// Error type specific to our LSP handlers, using `thiserror`.
+#[allow(dead_code)]
 #[derive(thiserror::Error, Debug)]
 pub enum HandlerError {
     #[error("Document update error: {uri} - {message}")]
@@ -81,6 +83,7 @@ pub enum HandlerError {
     },
 }
 
+#[allow(dead_code)]
 impl HandlerError {
     /// Determines if this error is retryable.
     pub fn is_retryable(&self) -> bool {
@@ -89,19 +92,22 @@ impl HandlerError {
 }
 
 /// Convenience type alias for handler results.
+#[allow(dead_code)]
 pub type HandlerResult<T> = std::result::Result<T, HandlerError>;
 
 // -----------------------------------------------------------------------------
 // Basic fallback capabilities
 // -----------------------------------------------------------------------------
 
-fn build_basic_server_capabilities() -> ServerCapabilities {
+fn default_server_capabilities() -> ServerCapabilities {
     ServerCapabilities {
         text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::INCREMENTAL)),
+        completion_provider: Some(CompletionOptions {
+            resolve_provider: Some(false),
+            trigger_characters: Some(vec![":".to_string(), ">".to_string(), "|".to_string()]),
+            ..Default::default()
+        }),
         hover_provider: Some(HoverProviderCapability::Simple(true)),
-        completion_provider: Some(fallback_completion_options()),
-        call_hierarchy_provider: Some(CallHierarchyProviderCapability::Simple(true)),
-        code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
         ..Default::default()
     }
 }
@@ -120,7 +126,7 @@ impl LanguageServer for KymeraLanguageServer {
             Ok(c) => (c, false),
             Err(e) => {
                 error!("Failed to load capabilities dynamically: {e}");
-                (build_basic_server_capabilities(), true)
+                (default_server_capabilities(), true)
             }
         };
 
@@ -244,14 +250,14 @@ impl LanguageServer for KymeraLanguageServer {
 // Example concurrency feature: Optional Worker Pool
 // -----------------------------------------------------------------------------
 
-use futures::stream::{Stream, StreamExt};
 use tokio::sync::{mpsc, Mutex};
 
-#[derive(Debug)]
+#[allow(dead_code)]
 pub struct Work<T> {
     pub data: T,
 }
 
+#[allow(dead_code)]
 impl<T> Work<T> {
     pub async fn process(&self) -> std::result::Result<(), String> {
         // Custom processing logic
@@ -259,35 +265,41 @@ impl<T> Work<T> {
     }
 }
 
-#[derive(Debug)]
+#[allow(dead_code)]
 pub struct WorkerHandle {
     id: usize,
     handle: tokio::task::JoinHandle<()>,
 }
 
-#[derive(Debug)]
+#[allow(dead_code)]
 pub struct WorkerPool<T> {
     sender: mpsc::Sender<Work<T>>,
     workers: Vec<WorkerHandle>,
 }
 
-impl<T: Send + 'static> WorkerPool<T> {
+#[allow(dead_code)]
+impl<T: Send + Sync + 'static> WorkerPool<T> {
     /// Creates a new worker pool with the specified number of workers.
     pub fn new(size: usize) -> Self {
-        let (tx, rx) = mpsc::channel(1000);
+        let (tx, rx) = mpsc::channel(32);
         let rx = Arc::new(Mutex::new(rx));
+        let mut workers = Vec::with_capacity(size);
 
-        let workers = (0..size)
-            .map(|id| {
-                let rx = rx.clone();
-                let handle = tokio::spawn(async move {
-                    Self::worker_loop(id, rx).await;
-                });
-                WorkerHandle { id, handle }
-            })
-            .collect();
+        for id in 0..size {
+            let rx = Arc::clone(&rx);
+            let handle = tokio::spawn(async move {
+                Self::worker_loop(id, rx).await;
+            });
+            workers.push(WorkerHandle {
+                id,
+                handle,
+            });
+        }
 
-        Self { sender: tx, workers }
+        Self {
+            sender: tx,
+            workers,
+        }
     }
 
     /// Worker loop which processes incoming jobs until the channel closes.
