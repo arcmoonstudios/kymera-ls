@@ -29,7 +29,7 @@ bytes = "1.5"
 
 # Logging & Metrics
 tracing = { version = "0.1", features = ["attributes"] }
-metrics = "0.17"
+metrics = "0.24"
 humantime-serde = "1.1"
 
 # Workspace Dependencies
