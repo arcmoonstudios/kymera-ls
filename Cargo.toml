@@ -59,7 +59,7 @@ protobuf-parse = "3.3.0"
 
 [dev-dependencies]
 # Testing
-mockall = { version = "0.12.1", features = ["nightly"] }
+mockall = { version = "0.13.1", features = ["nightly"] }
 proptest = "1.0"
 tokio-test = "0.4"
 criterion = "0.5"

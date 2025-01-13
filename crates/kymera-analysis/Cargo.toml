@@ -21,7 +21,7 @@ kymera-parser = { path = "../kymera-parser", version = "0.1.0" }
 [dev-dependencies]
 # Testing utilities
 criterion = "0.5"  # For benchmarking
-mockall = "0.12"   # For mocking
+mockall = "0.13"   # For mocking
 proptest = "1.0"   # For property testing
 test-case = "3.3"  # For parameterized tests 
 
