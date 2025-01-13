@@ -31,7 +31,7 @@ async-trait = "0.1"
 # LSP & Analysis
 tower-lsp = "0.20.0"
 ropey = "1.6.1"  # Efficient text handling
-dashmap = "5.5.3"  # Thread-safe HashMap
+dashmap = "6.1.0"  # Thread-safe HashMap
 
 # Serialization & Data Handling
 serde = { version = "1.0", features = ["derive"] }
