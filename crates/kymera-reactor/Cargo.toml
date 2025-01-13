@@ -12,7 +12,7 @@ serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0.7"
 anyhow = "1.0.94"
 config = "0.13"
-secrecy = "0.8"
+secrecy = "0.10"
 zeroize = { version = "1.6", features = ["derive"] }
 constant_time_eq = "0.3"
 num_cpus = "1.16"
