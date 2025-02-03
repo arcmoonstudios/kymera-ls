@@ -23,7 +23,7 @@ ndarray = { version = "0.15", features = ["serde", "blas"] }
 ndarray-linalg = { version = "0.16", features = ["openblas-system"] }
 num-complex = { version = "0.4", features = ["serde"] }
 rand = "0.8"
-rand_distr = "0.4"
+rand_distr = "0.5"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
